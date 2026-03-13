@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>School Calendar</title>
+
+<style>
+body {
+  font-family: Arial;
+  background:#111;
+  color:white;
+  text-align:center;
+  margin:0;
+  padding:0;
+}
+
+.calendar {
+  display:grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap:6px;
+  width: 95%;
+  max-width:700px;
+  margin: 15px auto 0 auto;
+}
+
+.header {
+  font-weight:bold;
+}
+
+.day {
+  padding:14px;
+  border-radius:8px;
+  font-size:14px;
+  min-width: 0;
+}
+
+.school {
+  background:#ffffff;
+  color:#000;
+  box-shadow:0 0 6px rgba(255,255,255,0.4);
+}
+
+.noschool {
+  background:#444;
+  color:#bbb;
+}
+
+.weekend {
+  background:#222;
+}
+
+.today {
+  border:2px solid #ff9999;
+  box-shadow:0 0 8px #ff6666;
+}
+
+.dateNumber {
+  font-size:18px;
+  font-weight:bold;
+}
+
+button {
+  background:none;
+  color:white;
+  border:1px solid white;
+  font-size:16px;
+  padding:4px 8px;
+  margin:5px;
+  cursor:pointer;
+}
+
+button:disabled {
+  opacity:0.3;
+  cursor:not-allowed;
+}
+
+#legend {
+  margin-top:15px;
+  font-size:14px;
+}
+
+.legendItem {
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:4px;
+  margin:0 4px;
+}
+
+.schoolBox { background:white; color:black; }
+.noschoolBox { background:#444; color:#bbb; }
+.weekendBox { background:#222; color:#bbb; }
+
+#version {
+  font-size:10px;
+  color:#888;
+  margin-top:20px;
+}
+
+@media(max-width:500px){
+  .calendar { max-width:90%; gap:4px; }
+  .day { padding:10px; font-size:12px; }
+}
+</style>
+</head>
+
+<body>
+
+<div>
+<button id="prevMonth">&lt;</button>
+<span id="monthTitle"></span>
+<button id="nextMonth">&gt;</button>
+</div>
+
+<div id="legend">
+<span class="legendItem schoolBox">School</span>
+<span class="legendItem noschoolBox">No School</span>
+<span class="legendItem weekendBox">Weekend</span>
+<span class="legendItem" style="border:2px solid #ff9999; box-shadow:0 0 4px #ff6666;">Today</span>
+</div>
+  
+<div id="calendarLoading" style="text-align:center; color:#ccc;">Loading...</div>
+<div class="calendar" id="calendar" style="display:none;"></div>
+  
+<p id="version">v1.0</p>
+
+<script>
+const webAppUrl = "https://script.google.com/macros/s/AKfycbw1B_Cmgc7vMAFXXWzeF3yH3eD-gdFJT5EaYzZwRZnN6npcq6emDiZRvZpG_HX5zbyJ3Q/exec"; 
+
+const CALENDAR_YEAR = 2026;
+let now = new Date();
+let month = now.getMonth();
+let todayDate = now.getDate();
+
+const monthNames = ["January","February","March","April","May","June",
+"July","August","September","October","November","December"];
+
+const calendarEl = document.getElementById("calendar");
+const calendarLoadingEl = document.getElementById("calendarLoading");
+const monthTitleEl = document.getElementById("monthTitle");
+const prevBtn = document.getElementById("prevMonth");
+const nextBtn = document.getElementById("nextMonth");
+
+let schoolDays = {};
+
+function handleSchoolData(data) {
+  setTimeout(() => {
+    data.forEach(e => {
+      if (!e.date) return;
+      const parts = e.date.split('-');  
+      const y = parts[0];
+      const m = parts[1];
+      const day = parts[2];
+      schoolDays[`${y}-${m}-${day}`] = e.status.trim();
+    });
+
+    console.log("Loaded school days:", schoolDays);
+
+    calendarLoadingEl.style.display = "none";
+    calendarEl.style.display = "grid";
+
+    buildCalendar();
+  }, 300); 
+}
+
+const script = document.createElement("script");
+script.src = webAppUrl + "?t=" + Date.now() + "&callback=handleSchoolData";
+document.body.appendChild(script);
+
+prevBtn.addEventListener("click", () => { if(month>0) month--; buildCalendar(); });
+nextBtn.addEventListener("click", () => { if(month<11) month++; buildCalendar(); });
+
+function buildCalendar() {
+  calendarEl.innerHTML = "";
+  monthTitleEl.innerText = monthNames[month] + " " + CALENDAR_YEAR;
+  prevBtn.disabled = (month === 0);
+  nextBtn.disabled = (month === 11);
+
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(h => {
+    const d = document.createElement("div");
+    d.className = "header";
+    d.innerText = h;
+    calendarEl.appendChild(d);
+  });
+
+  const firstDay = new Date(CALENDAR_YEAR, month, 1).getDay();
+  for (let i=0;i<firstDay;i++) calendarEl.appendChild(document.createElement("div"));
+
+  const daysInMonth = new Date(CALENDAR_YEAR, month+1,0).getDate();
+  for (let i=1;i<=daysInMonth;i++){
+    const d = document.createElement("div");
+    d.className="day";
+    const dateStr = `${CALENDAR_YEAR}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+    const dayOfWeek = new Date(CALENDAR_YEAR, month, i).getDay();
+
+    if(dayOfWeek===0||dayOfWeek===6) d.classList.add("weekend");
+    else if(schoolDays[dateStr] && schoolDays[dateStr].toLowerCase() === "school") d.classList.add("school");
+    else d.classList.add("noschool");
+
+    if(i===todayDate && month===now.getMonth() && CALENDAR_YEAR===now.getFullYear()) d.classList.add("today");
+
+    d.innerHTML=`<div class="dateNumber">${i}</div>`;
+    calendarEl.appendChild(d);
+  }
+}
+</script>
+
+</body>
+</html>
